@@ -1,0 +1,187 @@
+generator client {
+  provider = "prisma-client-js"
+}
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CUSTOMER
+  OWNER
+  ADMIN
+}
+enum SalonStatus {
+  PENDING_APPROVAL
+  ACTIVE
+  SUSPENDED
+  REJECTED
+}
+enum AppointmentStatus {
+  CONFIRMED
+  IN_SERVICE
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+enum InvoiceStatus {
+  DRAFT
+  PAID
+  PAST_DUE
+  FAILED
+  REFUNDED
+}
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+  IN_APP
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         Role     @default(CUSTOMER)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+  memberships  SalonMember[]
+  appointments Appointment[] @relation("CustomerAppointments")
+  notifications Notification[]
+}
+model Salon {
+  id                      String @id @default(cuid())
+  name                    String
+  slug                    String @unique
+  city                    String
+  address                 String
+  phone                   String?
+  email                   String
+  image                   String?
+  description             String @default("")
+  categories              String[] @default([])
+  hours                   String @default("09:00 AM - 07:00 PM")
+  status                  SalonStatus @default(PENDING_APPROVAL)
+  plan                    String @default("Trial")
+  monthlyPrice            Decimal @default(0) @db.Decimal(10,2)
+  cancellationWindowHours Int @default(24)
+  rating                  Float @default(0)
+  reviewsCount            Int @default(0)
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+  members                 SalonMember[]
+  services                Service[]
+  staff                   Staff[]
+  appointments            Appointment[]
+  invoices                Invoice[]
+  notifications           Notification[]
+  @@index([status, city])
+}
+model SalonMember {
+  id String @id @default(cuid())
+  userId String
+  salonId String
+  isPrimary Boolean @default(false)
+  createdAt DateTime @default(now())
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  @@unique([userId, salonId])
+}
+model Service {
+  id String @id @default(cuid())
+  salonId String
+  name String
+  category String @default("Hair")
+  durationMin Int @default(60)
+  price Decimal @db.Decimal(10,2)
+  isActive Boolean @default(true)
+  createdAt DateTime @default(now())
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  staffLinks StaffService[]
+  appointments Appointment[]
+  @@index([salonId, isActive])
+}
+model Staff {
+  id String @id @default(cuid())
+  salonId String
+  name String
+  title String @default("Stylist")
+  email String?
+  phone String?
+  avatar String?
+  breakTime String?
+  isWorking Boolean @default(true)
+  createdAt DateTime @default(now())
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  serviceLinks StaffService[]
+  appointments Appointment[]
+  @@index([salonId, isWorking])
+}
+model StaffService {
+  staffId String
+  serviceId String
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  @@id([staffId, serviceId])
+}
+model Appointment {
+  id String @id @default(cuid())
+  salonId String
+  serviceId String
+  staffId String
+  customerId String?
+  clientName String
+  clientPhone String?
+  clientEmail String?
+  date DateTime @db.Date
+  startTime String
+  endTime String
+  status AppointmentStatus @default(CONFIRMED)
+  price Decimal @db.Decimal(10,2)
+  isWalkIn Boolean @default(false)
+  notes String @default("")
+  idempotencyKey String? @unique
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  service Service @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  staff Staff @relation(fields: [staffId], references: [id], onDelete: Restrict)
+  customer User? @relation("CustomerAppointments", fields: [customerId], references: [id], onDelete: SetNull)
+  @@index([salonId, date, status])
+  @@index([staffId, date, startTime, endTime])
+  @@index([customerId, date])
+}
+model Invoice {
+  id String @id @default(cuid())
+  salonId String
+  plan String
+  amount Decimal @db.Decimal(10,2)
+  currency String @default("USD")
+  status InvoiceStatus @default(DRAFT)
+  externalId String? @unique
+  issuedAt DateTime @default(now())
+  paidAt DateTime?
+  salon Salon @relation(fields: [salonId], references: [id], onDelete: Cascade)
+  @@index([salonId, status])
+}
+model PlatformSetting {
+  key String @id
+  value Json
+  updatedAt DateTime @updatedAt
+}
+model Notification {
+  id String @id @default(cuid())
+  userId String?
+  salonId String?
+  channel NotificationChannel @default(IN_APP)
+  recipient String
+  subject String?
+  message String
+  type String
+  sentAt DateTime?
+  createdAt DateTime @default(now())
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  salon Salon? @relation(fields: [salonId], references: [id], onDelete: SetNull)
+  @@index([salonId, createdAt])
+}
