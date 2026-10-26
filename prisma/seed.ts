@@ -2,8 +2,8 @@ import { PrismaClient } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 const prisma = new PrismaClient();
 async function main() {
-  const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'admin@example.com').toLowerCase();
-  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'ChangeThis-Admin-Password-123!';
+  const adminEmail = (process.env.SEED_ADMIN_EMAIL || 'mani.manikandank75@gmail.com').toLowerCase();
+  const adminPassword = process.env.SEED_ADMIN_PASSWORD || 'Chilly@239177';
   await prisma.user.upsert({ where: { email: adminEmail }, update: {}, create: { name: 'Platform Administrator', email: adminEmail, passwordHash: await bcrypt.hash(adminPassword, 12), role: 'ADMIN' } });
   const ownerEmail = 'owner@example.com';
   const owner = await prisma.user.upsert({ where: { email: ownerEmail }, update: {}, create: { name: 'Salon Owner', email: ownerEmail, passwordHash: await bcrypt.hash('ChangeThis-Owner-Password-123!', 12), role: 'OWNER' } });
